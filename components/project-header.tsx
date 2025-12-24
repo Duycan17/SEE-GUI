@@ -41,16 +41,6 @@ export function ProjectHeader({
                 onProjectChange={onProjectChange}
               />
             )}
-            <div className="space-y-1">
-              <h1 className="text-2xl font-bold text-foreground tracking-tight">
-                {project.name}
-              </h1>
-              {project.description && (
-                <p className="text-sm text-muted-foreground max-w-2xl">
-                  {project.description}
-                </p>
-              )}
-            </div>
           </div>
 
           <div className="flex items-center gap-6">

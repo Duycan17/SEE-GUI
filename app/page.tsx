@@ -63,14 +63,6 @@ export default function LandingPage() {
           <section className="relative px-6 py-24 md:py-32 flex flex-col items-center text-center overflow-hidden">
             <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-10 brightness-100 contrast-150 mix-blend-overlay"></div>
 
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-indigo-200 bg-white/60 mb-8 backdrop-blur-sm animate-in fade-in slide-in-from-bottom-4 duration-500 shadow-sm">
-              <span className="flex h-2 w-2 relative">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-indigo-500"></span>
-              </span>
-              <span className="text-sm font-medium text-indigo-800">New: GPT-4o Integration is live</span>
-            </div>
-
             <h1 className="text-5xl md:text-8xl font-bold tracking-tight mb-8 max-w-5xl animate-in fade-in slide-in-from-bottom-8 duration-700 delay-100 leading-[1.1] text-slate-900">
               Project Management <br className="hidden md:block" />
               <span className="bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 via-purple-600 to-blue-600 animate-gradient-x">
