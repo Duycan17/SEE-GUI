@@ -101,14 +101,14 @@ export default function LoginPage() {
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
-          <CardTitle className="text-2xl">Apollo SEE Project</CardTitle>
-          <CardDescription>Đăng nhập để quản lý dự án</CardDescription>
+          <CardTitle className="text-2xl font-bold">Velociti AI</CardTitle>
+          <CardDescription>Login to manage your projects</CardDescription>
         </CardHeader>
         <CardContent>
           <Tabs defaultValue="login">
             <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="login">Đăng nhập</TabsTrigger>
-              <TabsTrigger value="signup">Đăng ký</TabsTrigger>
+              <TabsTrigger value="login">Sign In</TabsTrigger>
+              <TabsTrigger value="signup">Sign Up</TabsTrigger>
             </TabsList>
 
             <TabsContent value="login">
@@ -118,14 +118,14 @@ export default function LoginPage() {
                   <Input
                     id="email-login"
                     type="email"
-                    placeholder="email@example.com"
+                    placeholder="name@example.com"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     required
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="password-login">Mật khẩu</Label>
+                  <Label htmlFor="password-login">Password</Label>
                   <Input
                     id="password-login"
                     type="password"
@@ -137,7 +137,7 @@ export default function LoginPage() {
                 {error && <p className="text-sm text-destructive">{error}</p>}
                 <Button type="submit" className="w-full" disabled={loading}>
                   {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Đăng nhập
+                  Sign In
                 </Button>
               </form>
             </TabsContent>
@@ -149,18 +149,18 @@ export default function LoginPage() {
                   <Input
                     id="email-signup"
                     type="email"
-                    placeholder="email@example.com"
+                    placeholder="name@example.com"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     required
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="password-signup">Mật khẩu</Label>
+                  <Label htmlFor="password-signup">Password</Label>
                   <Input
                     id="password-signup"
                     type="password"
-                    placeholder="Tối thiểu 6 ký tự"
+                    placeholder="Minimum 6 characters"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
@@ -171,7 +171,7 @@ export default function LoginPage() {
                 {message && <p className="text-sm text-green-600">{message}</p>}
                 <Button type="submit" className="w-full" disabled={loading}>
                   {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Đăng ký
+                  Sign Up
                 </Button>
               </form>
             </TabsContent>

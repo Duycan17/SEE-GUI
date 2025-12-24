@@ -19,7 +19,7 @@ interface SwimLaneColumnProps {
   onTaskUpdate: (task: Tables<"tasks">) => void;
   onTaskCreate: (task: Tables<"tasks">) => void;
   onTaskDelete: (taskId: string) => void;
-  onDragStart: (taskId: string, swimlaneId: string) => void;
+  onDragStart: (taskId: string, swimlaneId: string, swimlaneName?: string) => void;
   onDragOver: (e: React.DragEvent, swimlaneId: string) => void;
   onDragLeave: () => void;
   onDrop: (e: React.DragEvent) => void;
@@ -97,8 +97,9 @@ export function SwimLaneColumn({
               key={task.id}
               task={task}
               onClick={() => handleTaskClick(task)}
-              onDragStart={() => onDragStart(task.id, swimlane.id)}
+              onDragStart={() => onDragStart(task.id, swimlane.id, swimlane.name)}
               onDragEnd={onDragEnd}
+              isInDoneSwimlane={swimlane.name.toLowerCase() === "done"}
             />
           ))}
 

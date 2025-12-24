@@ -26,6 +26,7 @@ interface TaskCardProps {
   onClick: () => void;
   onDragStart?: () => void;
   onDragEnd?: () => void;
+  isInDoneSwimlane?: boolean;
 }
 
 export function TaskCard({
@@ -33,6 +34,7 @@ export function TaskCard({
   onClick,
   onDragStart,
   onDragEnd,
+  isInDoneSwimlane = false,
 }: TaskCardProps) {
   const [isDragging, setIsDragging] = useState(false);
   const effortColorClass = task.estimated_effort_pm
@@ -40,6 +42,11 @@ export function TaskCard({
     : "";
 
   const handleDragStart = (e: React.DragEvent) => {
+    // Prevent dragging if task is in Done swimlane
+    if (isInDoneSwimlane) {
+      e.preventDefault();
+      return;
+    }
     setIsDragging(true);
     e.dataTransfer.effectAllowed = "move";
     // Set data for compatibility (though we use state management)
@@ -70,11 +77,13 @@ export function TaskCard({
 
   return (
     <Card
-      draggable
+      draggable={!isInDoneSwimlane}
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
       className={cn(
-        "cursor-move transition-all hover:shadow-md hover:border-primary/50 group",
+        "transition-all hover:shadow-md hover:border-primary/50 group",
+        !isInDoneSwimlane && "cursor-move",
+        isInDoneSwimlane && "cursor-default opacity-75",
         isDragging && "opacity-40 cursor-grabbing"
       )}
       onClick={(e) => {
@@ -84,8 +93,13 @@ export function TaskCard({
       }}>
       <CardHeader className="pb-3">
         <div className="flex items-start gap-2">
-          <GripVertical className="size-4 text-muted-foreground/50 group-hover:text-muted-foreground transition-colors shrink-0 mt-0.5" />
-          <CardTitle className="text-sm font-medium leading-tight line-clamp-2 flex-1">
+          {!isInDoneSwimlane && (
+            <GripVertical className="size-4 text-muted-foreground/50 group-hover:text-muted-foreground transition-colors shrink-0 mt-0.5" />
+          )}
+          <CardTitle className={cn(
+            "text-sm font-medium leading-tight line-clamp-2 flex-1",
+            isInDoneSwimlane && "line-through text-muted-foreground"
+          )}>
             {task.title}
           </CardTitle>
         </div>

@@ -8,9 +8,9 @@ const _geist = Geist({ subsets: ["latin"] })
 const _geistMono = Geist_Mono({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "Apollo SEE Project | NASA-Inspired Effort Estimation",
+  title: "Velociti AI | Intelligent Project Estimation",
   description:
-    "Comprehensive project management system with integrated Software Effort Estimation (SEE) model based on NASA and China datasets",
+    "Next-gen project management with AI-powered software effort estimation and sprint optimization.",
   generator: "v0.app",
   icons: {
     icon: [

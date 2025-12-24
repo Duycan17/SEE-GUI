@@ -33,21 +33,22 @@ export async function middleware(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  // Redirect to login if not authenticated (except for login and auth routes)
+  // Redirect to login if not authenticated (except for login, auth, and landing page)
   if (
     !user &&
     !request.nextUrl.pathname.startsWith("/login") &&
-    !request.nextUrl.pathname.startsWith("/auth")
+    !request.nextUrl.pathname.startsWith("/auth") &&
+    request.nextUrl.pathname !== "/"
   ) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     return NextResponse.redirect(url);
   }
 
-  // Redirect to home if already logged in and trying to access login
-  if (user && request.nextUrl.pathname.startsWith("/login")) {
+  // Redirect to dashboard if already logged in and trying to access login or landing page
+  if (user && (request.nextUrl.pathname.startsWith("/login") || request.nextUrl.pathname === "/")) {
     const url = request.nextUrl.clone();
-    url.pathname = "/";
+    url.pathname = "/dashboard";
     return NextResponse.redirect(url);
   }
 

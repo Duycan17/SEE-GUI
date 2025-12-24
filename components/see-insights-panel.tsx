@@ -41,14 +41,15 @@ export function SEEInsightsPanel({ tasks }: SEEInsightsPanelProps) {
       : 1.0
 
   return (
-    <div className="w-80 border-l bg-muted/30">
+    <div className="w-full">
       <ScrollArea className="h-full">
         <div className="p-6 space-y-6">
-          <div>
-            <h2 className="text-lg font-semibold mb-1">SEE Insights</h2>
-            <p className="text-xs text-muted-foreground">Real-time effort estimation analytics</p>
+          <div className="text-center">
+            <h2 className="text-2xl font-semibold mb-2">SEE Insights</h2>
+            <p className="text-sm text-muted-foreground">Real-time effort estimation analytics</p>
           </div>
 
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Card>
             <CardHeader>
               <CardTitle className="text-sm flex items-center gap-2">
@@ -96,55 +97,62 @@ export function SEEInsightsPanel({ tasks }: SEEInsightsPanelProps) {
               <p className="text-xs text-muted-foreground mt-1">Average EAF across project</p>
             </CardContent>
           </Card>
+          </div>
 
-          {highComplexityTasks.length > 0 && (
-            <Card className="border-orange-200 bg-orange-50">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {highComplexityTasks.length > 0 && (
+              <Card className="border-orange-200 bg-orange-50">
+                <CardHeader>
+                  <CardTitle className="text-sm flex items-center gap-2 text-orange-900">
+                    <AlertCircle className="size-4" />
+                    High Complexity Alert
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-xs text-orange-800 mb-3">
+                    {highComplexityTasks.length} task(s) marked as high complexity
+                  </p>
+                  <div className="space-y-2">
+                    {highComplexityTasks.slice(0, 3).map((task) => (
+                      <div key={task.id} className="text-xs bg-white p-2 rounded border border-orange-200">
+                        <div className="font-medium text-orange-900 line-clamp-1">{task.title}</div>
+                        <div className="flex items-center gap-2 mt-1">
+                          <Badge variant="outline" className="text-orange-700 bg-orange-100 border-orange-300">
+                            CPLX: {task.attr_cplx?.toFixed(2)}
+                          </Badge>
+                          <span className="text-orange-600">{task.estimated_effort_pm?.toFixed(1)} PM</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            <Card>
               <CardHeader>
-                <CardTitle className="text-sm flex items-center gap-2 text-orange-900">
-                  <AlertCircle className="size-4" />
-                  High Complexity Alert
-                </CardTitle>
+                <CardTitle className="text-sm font-semibold">Effort Distribution</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-xs text-orange-800 mb-3">
-                  {highComplexityTasks.length} task(s) marked as high complexity
-                </p>
-                <div className="space-y-2">
-                  {highComplexityTasks.slice(0, 3).map((task) => (
-                    <div key={task.id} className="text-xs bg-white p-2 rounded border border-orange-200">
-                      <div className="font-medium text-orange-900 line-clamp-1">{task.title}</div>
-                      <div className="flex items-center gap-2 mt-1">
-                        <Badge variant="outline" className="text-orange-700 bg-orange-100 border-orange-300">
-                          CPLX: {task.attr_cplx?.toFixed(2)}
-                        </Badge>
-                        <span className="text-orange-600">{task.estimated_effort_pm?.toFixed(1)} PM</span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                {tasksWithEffort.length > 0 ? (
+                  <div className="space-y-2">
+                    {tasksWithEffort
+                      .sort((a, b) => (b.estimated_effort_pm || 0) - (a.estimated_effort_pm || 0))
+                      .slice(0, 5)
+                      .map((task) => (
+                        <div key={task.id} className="flex items-center justify-between text-xs p-2 rounded bg-card border">
+                          <span className="font-medium truncate flex-1 mr-2">{task.title}</span>
+                          <Badge variant="outline" className={getEffortColorClass(task.estimated_effort_pm || 0)}>
+                            {task.estimated_effort_pm?.toFixed(1)} PM
+                          </Badge>
+                        </div>
+                      ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-muted-foreground">No tasks with effort estimates yet</p>
+                )}
               </CardContent>
             </Card>
-          )}
-
-          <div className="space-y-3">
-            <h3 className="text-sm font-semibold">Effort Distribution</h3>
-            {tasksWithEffort.length > 0 ? (
-              <div className="space-y-2">
-                {tasksWithEffort
-                  .sort((a, b) => (b.estimated_effort_pm || 0) - (a.estimated_effort_pm || 0))
-                  .slice(0, 5)
-                  .map((task) => (
-                    <div key={task.id} className="flex items-center justify-between text-xs p-2 rounded bg-card border">
-                      <span className="font-medium truncate flex-1 mr-2">{task.title}</span>
-                      <Badge variant="outline" className={getEffortColorClass(task.estimated_effort_pm || 0)}>
-                        {task.estimated_effort_pm?.toFixed(1)} PM
-                      </Badge>
-                    </div>
-                  ))}
-              </div>
-            ) : (
-              <p className="text-xs text-muted-foreground">No tasks with effort estimates yet</p>
-            )}
           </div>
         </div>
       </ScrollArea>

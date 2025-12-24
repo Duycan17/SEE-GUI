@@ -8,6 +8,7 @@ import type { Tables } from "@/lib/supabase/database.types"
 interface DragState {
   draggedTaskId: string | null
   sourceSwimLaneId: string | null
+  sourceSwimLaneName: string | null
   targetSwimLaneId: string | null
 }
 
@@ -15,13 +16,15 @@ export function useTaskDragDrop() {
   const [dragState, setDragState] = useState<DragState>({
     draggedTaskId: null,
     sourceSwimLaneId: null,
+    sourceSwimLaneName: null,
     targetSwimLaneId: null,
   })
 
-  const handleDragStart = (taskId: string, swimlaneId: string) => {
+  const handleDragStart = (taskId: string, swimlaneId: string, swimlaneName?: string) => {
     setDragState({
       draggedTaskId: taskId,
       sourceSwimLaneId: swimlaneId,
+      sourceSwimLaneName: swimlaneName || null,
       targetSwimLaneId: null,
     })
   }
@@ -52,9 +55,14 @@ export function useTaskDragDrop() {
   ) => {
     e.preventDefault()
 
-    const { draggedTaskId, sourceSwimLaneId } = dragState
+    const { draggedTaskId, sourceSwimLaneId, sourceSwimLaneName } = dragState
 
     if (!draggedTaskId) return
+
+    // Prevent moving tasks FROM "Done" swimlane to other swimlanes
+    if (sourceSwimLaneName && sourceSwimLaneName.toLowerCase() === "done" && sourceSwimLaneId !== targetSwimLaneId) {
+      return
+    }
 
     // Find the dragged task
     const draggedTask = allTasks.find((t) => t.id === draggedTaskId)
@@ -114,6 +122,7 @@ export function useTaskDragDrop() {
     setDragState({
       draggedTaskId: null,
       sourceSwimLaneId: null,
+      sourceSwimLaneName: null,
       targetSwimLaneId: null,
     })
   }
@@ -122,6 +131,7 @@ export function useTaskDragDrop() {
     setDragState({
       draggedTaskId: null,
       sourceSwimLaneId: null,
+      sourceSwimLaneName: null,
       targetSwimLaneId: null,
     })
   }
