@@ -14,15 +14,24 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Call the PostgreSQL function to reorder tasks
-    const { error } = await supabase.rpc("reorder_tasks", {
-      p_task_ids: taskIds,
-      p_swimlane_id: swimlaneId,
-    });
+    // Update each task's position and swimlane_id
+    const updatePromises = taskIds.map((taskId: string, index: number) =>
+      supabase
+        .from("tasks")
+        .update({ position: index, swimlane_id: swimlaneId })
+        .eq("id", taskId)
+    );
 
-    if (error) {
-      console.error("[v0] Error reordering tasks:", error);
-      return NextResponse.json({ error: error.message }, { status: 500 });
+    const results = await Promise.all(updatePromises);
+
+    // Check for any errors
+    const updateError = results.find((r) => r.error);
+    if (updateError?.error) {
+      console.error("[v0] Error reordering tasks:", updateError.error);
+      return NextResponse.json(
+        { error: updateError.error.message },
+        { status: 500 }
+      );
     }
 
     // Fetch updated tasks to return
