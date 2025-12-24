@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import type { Tables } from "@/lib/supabase/database.types";
+import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -37,11 +38,37 @@ export function TeamView({ projectId }: TeamViewProps) {
     const [availableUsers, setAvailableUsers] = useState<Tables<"users">[]>([]);
     const [searchQuery, setSearchQuery] = useState("");
     const [isLoading, setIsLoading] = useState(false);
+    const [isAdmin, setIsAdmin] = useState(false);
 
     useEffect(() => {
         fetchMembers();
-        fetchAvailableUsers();
+        checkAdminStatus();
     }, [projectId]);
+
+    useEffect(() => {
+        if (isAdmin) {
+            fetchAvailableUsers();
+        }
+    }, [projectId, isAdmin]);
+
+    const checkAdminStatus = async () => {
+        const supabase = createClient();
+        const {
+            data: { user: authUser },
+        } = await supabase.auth.getUser();
+
+        if (authUser) {
+            const { data: dbUser } = await supabase
+                .from("users")
+                .select("is_admin")
+                .eq("user_auth_id", authUser.id)
+                .single();
+
+            if (dbUser) {
+                setIsAdmin(dbUser.is_admin === true);
+            }
+        }
+    };
 
     const fetchMembers = async () => {
         const res = await fetch(`/api/projects/${projectId}/members`);
@@ -65,11 +92,13 @@ export function TeamView({ projectId }: TeamViewProps) {
     };
 
     useEffect(() => {
-        const timer = setTimeout(() => {
-            fetchAvailableUsers();
-        }, 300);
-        return () => clearTimeout(timer);
-    }, [searchQuery]);
+        if (isAdmin) {
+            const timer = setTimeout(() => {
+                fetchAvailableUsers();
+            }, 300);
+            return () => clearTimeout(timer);
+        }
+    }, [searchQuery, isAdmin]);
 
     const addMember = async (userId: string, role: string = "member") => {
         setIsLoading(true);
@@ -141,7 +170,11 @@ export function TeamView({ projectId }: TeamViewProps) {
         <div className="p-6 max-w-5xl mx-auto space-y-8">
             <div>
                 <h2 className="text-2xl font-bold tracking-tight">Team Management</h2>
-                <p className="text-muted-foreground">Manage members and their roles in this project.</p>
+                <p className="text-muted-foreground">
+                    {isAdmin
+                        ? "Manage members and their roles in this project."
+                        : "View project members (Admin only: Add/Edit/Remove)"}
+                </p>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
@@ -160,7 +193,9 @@ export function TeamView({ projectId }: TeamViewProps) {
                             <div className="space-y-4">
                                 {members.length === 0 ? (
                                     <div className="text-center py-8 text-muted-foreground">
-                                        No members found. Invite someone from the right panel.
+                                        {isAdmin
+                                            ? "No members found. Invite someone from the right panel."
+                                            : "No members found in this project."}
                                     </div>
                                 ) : (
                                     members.map((member) => (
@@ -198,8 +233,9 @@ export function TeamView({ projectId }: TeamViewProps) {
                                                 <Select
                                                     value={member.role || "member"}
                                                     onValueChange={(role) => updateRole(member.id, role)}
+                                                    disabled={!isAdmin}
                                                 >
-                                                    <SelectTrigger className="w-[110px] h-9">
+                                                    <SelectTrigger className="w-[110px] h-9" disabled={!isAdmin}>
                                                         <SelectValue />
                                                     </SelectTrigger>
                                                     <SelectContent>
@@ -211,8 +247,9 @@ export function TeamView({ projectId }: TeamViewProps) {
                                                 <Button
                                                     size="icon"
                                                     variant="ghost"
-                                                    className="h-9 w-9 text-slate-400 hover:text-red-600 hover:bg-red-50"
+                                                    className="h-9 w-9 text-slate-400 hover:text-red-600 hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed"
                                                     onClick={() => removeMember(member.id)}
+                                                    disabled={!isAdmin}
                                                 >
                                                     <X className="w-4 h-4" />
                                                 </Button>
@@ -225,70 +262,93 @@ export function TeamView({ projectId }: TeamViewProps) {
                     </Card>
                 </div>
 
-                <div className="md:col-span-1">
-                    <Card className="bg-slate-50 border-indigo-100">
-                        <CardHeader className="bg-indigo-50/50 border-b border-indigo-100 pb-4">
-                            <CardTitle className="text-base font-semibold text-indigo-900 flex items-center gap-2">
-                                <UserPlus className="w-4 h-4" />
-                                Invite New Members
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent className="pt-6">
-                            <div className="space-y-4">
-                                <div className="relative">
-                                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                                    <Input
-                                        placeholder="Search users..."
-                                        value={searchQuery}
-                                        onChange={(e) => setSearchQuery(e.target.value)}
-                                        className="pl-9 bg-white"
-                                    />
-                                </div>
+                {isAdmin ? (
+                    <div className="md:col-span-1">
+                        <Card className="bg-slate-50 border-indigo-100">
+                            <CardHeader className="bg-indigo-50/50 border-b border-indigo-100 pb-4">
+                                <CardTitle className="text-base font-semibold text-indigo-900 flex items-center gap-2">
+                                    <UserPlus className="w-4 h-4" />
+                                    Invite New Members
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent className="pt-6">
+                                <div className="space-y-4">
+                                    <div className="relative">
+                                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                                        <Input
+                                            placeholder="Search users..."
+                                            value={searchQuery}
+                                            onChange={(e) => setSearchQuery(e.target.value)}
+                                            className="pl-9 bg-white"
+                                        />
+                                    </div>
 
-                                <div className="space-y-2 max-h-[400px] overflow-y-auto pr-1">
-                                    {filteredUsers.length === 0 ? (
-                                        <p className="text-sm text-slate-500 text-center py-4">
-                                            No users found matching "{searchQuery}"
-                                        </p>
-                                    ) : (
-                                        filteredUsers.map((user) => (
-                                            <div
-                                                key={user.id}
-                                                className="flex items-center justify-between p-3 bg-white rounded-lg border border-slate-200 shadow-sm"
-                                            >
-                                                <div className="flex items-center gap-3 min-w-0">
-                                                    <Avatar className="h-8 w-8 shrink-0">
-                                                        <AvatarImage src={user.avatar_url || undefined} />
-                                                        <AvatarFallback className="text-xs">
-                                                            {getInitials(user.full_name, user.email)}
-                                                        </AvatarFallback>
-                                                    </Avatar>
-                                                    <div className="min-w-0 truncate">
-                                                        <p className="text-sm font-medium truncate">
-                                                            {user.full_name || user.email}
-                                                        </p>
-                                                        <p className="text-xs text-slate-500 truncate">
-                                                            {user.email}
-                                                        </p>
-                                                    </div>
-                                                </div>
-                                                <Button
-                                                    size="sm"
-                                                    variant="ghost"
-                                                    className="h-8 w-8 p-0 text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 shrink-0"
-                                                    onClick={() => addMember(user.id)}
-                                                    disabled={isLoading}
+                                    <div className="space-y-2 max-h-[400px] overflow-y-auto pr-1">
+                                        {filteredUsers.length === 0 ? (
+                                            <p className="text-sm text-slate-500 text-center py-4">
+                                                No users found matching "{searchQuery}"
+                                            </p>
+                                        ) : (
+                                            filteredUsers.map((user) => (
+                                                <div
+                                                    key={user.id}
+                                                    className="flex items-center justify-between p-3 bg-white rounded-lg border border-slate-200 shadow-sm"
                                                 >
-                                                    <UserPlus className="w-4 h-4" />
-                                                </Button>
-                                            </div>
-                                        ))
-                                    )}
+                                                    <div className="flex items-center gap-3 min-w-0">
+                                                        <Avatar className="h-8 w-8 shrink-0">
+                                                            <AvatarImage src={user.avatar_url || undefined} />
+                                                            <AvatarFallback className="text-xs">
+                                                                {getInitials(user.full_name, user.email)}
+                                                            </AvatarFallback>
+                                                        </Avatar>
+                                                        <div className="min-w-0 truncate">
+                                                            <p className="text-sm font-medium truncate">
+                                                                {user.full_name || user.email}
+                                                            </p>
+                                                            <p className="text-xs text-slate-500 truncate">
+                                                                {user.email}
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                    <Button
+                                                        size="sm"
+                                                        variant="ghost"
+                                                        className="h-8 w-8 p-0 text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 shrink-0"
+                                                        onClick={() => addMember(user.id)}
+                                                        disabled={isLoading}
+                                                    >
+                                                        <UserPlus className="w-4 h-4" />
+                                                    </Button>
+                                                </div>
+                                            ))
+                                        )}
+                                    </div>
                                 </div>
-                            </div>
-                        </CardContent>
-                    </Card>
-                </div>
+                            </CardContent>
+                        </Card>
+                    </div>
+                ) : (
+                    <div className="md:col-span-1">
+                        <Card className="bg-slate-50 border-slate-200">
+                            <CardHeader className="bg-slate-100/50 border-b border-slate-200 pb-4">
+                                <CardTitle className="text-base font-semibold text-slate-700 flex items-center gap-2">
+                                    <Shield className="w-4 h-4" />
+                                    Access Restricted
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent className="pt-6">
+                                <div className="space-y-3 text-sm text-slate-600">
+                                    <p>
+                                        Only administrators can add, edit, or remove team members.
+                                    </p>
+                                    <p className="text-xs text-slate-500">
+                                        Contact your project administrator to manage team members.
+                                    </p>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    </div>
+                )}
             </div>
         </div>
     );

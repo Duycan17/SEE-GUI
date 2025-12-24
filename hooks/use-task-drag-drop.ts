@@ -49,6 +49,7 @@ export function useTaskDragDrop() {
   const handleDrop = async (
     e: React.DragEvent,
     targetSwimLaneId: string,
+    targetSwimLaneName: string,
     tasks: Tables<"tasks">[],
     allTasks: Tables<"tasks">[],
     onTasksReorder: (tasks: Tables<"tasks">[]) => void,
@@ -96,6 +97,8 @@ export function useTaskDragDrop() {
         body: JSON.stringify({
           taskIds: reorderedTaskIds,
           swimlaneId: targetSwimLaneId,
+          targetSwimlaneName: targetSwimLaneName,
+          sourceSwimlaneName: sourceSwimLaneName,
         }),
       })
 

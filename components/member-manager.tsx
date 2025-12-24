@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import type { Tables } from "@/lib/supabase/database.types";
+import { createClient } from "@/lib/supabase/client";
 import {
   Dialog,
   DialogContent,
@@ -19,7 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { UserPlus, X, Search, Users } from "lucide-react";
+import { UserPlus, X, Search, Users, Shield } from "lucide-react";
 
 interface ProjectMember {
   id: string;
@@ -43,13 +44,39 @@ export function MemberManager({
   const [availableUsers, setAvailableUsers] = useState<Tables<"users">[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
     if (open) {
       fetchMembers();
-      fetchAvailableUsers();
+      checkAdminStatus();
     }
   }, [open, projectId]);
+
+  useEffect(() => {
+    if (open && isAdmin) {
+      fetchAvailableUsers();
+    }
+  }, [open, isAdmin]);
+
+  const checkAdminStatus = async () => {
+    const supabase = createClient();
+    const {
+      data: { user: authUser },
+    } = await supabase.auth.getUser();
+
+    if (authUser) {
+      const { data: dbUser } = await supabase
+        .from("users")
+        .select("is_admin")
+        .eq("user_auth_id", authUser.id)
+        .single();
+
+      if (dbUser) {
+        setIsAdmin(dbUser.is_admin === true);
+      }
+    }
+  };
 
   const fetchMembers = async () => {
     const res = await fetch(`/api/projects/${projectId}/members`);
@@ -73,13 +100,13 @@ export function MemberManager({
   };
 
   useEffect(() => {
-    if (open) {
+    if (open && isAdmin) {
       const timer = setTimeout(() => {
         fetchAvailableUsers();
       }, 300);
       return () => clearTimeout(timer);
     }
-  }, [searchQuery, open]);
+  }, [searchQuery, open, isAdmin]);
 
   const addMember = async (userId: string, role: string = "member") => {
     setIsLoading(true);
@@ -155,63 +182,76 @@ export function MemberManager({
             Project Members
           </DialogTitle>
           <DialogDescription>
-            Add users to project and manage their roles
+            {isAdmin
+              ? "Add users to project and manage their roles"
+              : "View project members (Admin only: Add/Edit/Remove)"}
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
-          {/* Search and Add Users */}
-          <div className="space-y-2">
-            <h4 className="text-sm font-medium">Add Members</h4>
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-              <Input
-                placeholder="Search users by name or email..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9"
-              />
-            </div>
+          {/* Search and Add Users - Only visible to admins */}
+          {isAdmin && (
+            <div className="space-y-2">
+              <h4 className="text-sm font-medium">Add Members</h4>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search users by name or email..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-9"
+                />
+              </div>
 
-            <div className="border rounded-md divide-y max-h-40 overflow-y-auto">
-              {filteredUsers.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-4">
-                  No available users found
-                </p>
-              ) : (
-                filteredUsers.map((user) => (
-                  <div
-                    key={user.id}
-                    className="flex items-center justify-between p-2 hover:bg-muted/50">
-                    <div className="flex items-center gap-2">
-                      <Avatar className="size-8">
-                        <AvatarImage src={user.avatar_url || undefined} />
-                        <AvatarFallback>
-                          {getInitials(user.full_name, user.email)}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div>
-                        <p className="text-sm font-medium">
-                          {user.full_name || user.email}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {user.email}
-                        </p>
+              <div className="border rounded-md divide-y max-h-40 overflow-y-auto">
+                {filteredUsers.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-4">
+                    No available users found
+                  </p>
+                ) : (
+                  filteredUsers.map((user) => (
+                    <div
+                      key={user.id}
+                      className="flex items-center justify-between p-2 hover:bg-muted/50">
+                      <div className="flex items-center gap-2">
+                        <Avatar className="size-8">
+                          <AvatarImage src={user.avatar_url || undefined} />
+                          <AvatarFallback>
+                            {getInitials(user.full_name, user.email)}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div>
+                          <p className="text-sm font-medium">
+                            {user.full_name || user.email}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {user.email}
+                          </p>
+                        </div>
                       </div>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => addMember(user.id)}
+                        disabled={isLoading}>
+                        <UserPlus className="size-4 mr-1" />
+                        Add
+                      </Button>
                     </div>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => addMember(user.id)}
-                      disabled={isLoading}>
-                      <UserPlus className="size-4 mr-1" />
-                      Add
-                    </Button>
-                  </div>
-                ))
-              )}
+                  ))
+                )}
+              </div>
             </div>
-          </div>
+          )}
+
+          {!isAdmin && (
+            <div className="flex items-center gap-2 p-3 bg-muted/50 rounded-md border border-muted">
+              <Shield className="size-4 text-muted-foreground" />
+              <p className="text-sm text-muted-foreground">
+                Only administrators can add, edit, or remove members.
+              </p>
+            </div>
+          )}
 
           {/* Current Members */}
           <div className="space-y-2">
@@ -252,8 +292,9 @@ export function MemberManager({
                     <div className="flex items-center gap-2">
                       <Select
                         value={member.role || "member"}
-                        onValueChange={(role) => updateRole(member.id, role)}>
-                        <SelectTrigger className="w-24 h-8">
+                        onValueChange={(role) => updateRole(member.id, role)}
+                        disabled={!isAdmin}>
+                        <SelectTrigger className="w-24 h-8" disabled={!isAdmin}>
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -265,8 +306,9 @@ export function MemberManager({
                       <Button
                         size="icon"
                         variant="ghost"
-                        className="size-8 text-destructive hover:text-destructive"
-                        onClick={() => removeMember(member.id)}>
+                        className="size-8 text-destructive hover:text-destructive disabled:opacity-50 disabled:cursor-not-allowed"
+                        onClick={() => removeMember(member.id)}
+                        disabled={!isAdmin}>
                         <X className="size-4" />
                       </Button>
                     </div>

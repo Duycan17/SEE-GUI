@@ -66,6 +66,7 @@ export function SwimLaneBoard({
                   handleDrop(
                     e,
                     swimlane.id,
+                    swimlane.name,
                     swimlaneTasks,
                     tasks,
                     handleTasksReorder

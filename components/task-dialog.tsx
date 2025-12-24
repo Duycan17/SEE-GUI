@@ -62,9 +62,10 @@ export function TaskDialog({
   const [pendingAssignments, setPendingAssignments] = useState<TaskAssignment[]>([]);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isDoneSwimlane, setIsDoneSwimlane] = useState(false);
 
   useEffect(() => {
-    // Fetch current user ID
+    // Fetch current user ID and check if swimlane is "Done"
     const fetchCurrentUser = async () => {
       const supabase = createClient();
       const {
@@ -84,7 +85,23 @@ export function TaskDialog({
       }
     };
 
+    const checkSwimlane = async () => {
+      if (swimlaneId) {
+        const supabase = createClient();
+        const { data: swimlane } = await supabase
+          .from("swimlanes")
+          .select("name")
+          .eq("id", swimlaneId)
+          .single();
+        
+        if (swimlane) {
+          setIsDoneSwimlane(swimlane.name.toLowerCase() === "done");
+        }
+      }
+    };
+
     fetchCurrentUser();
+    checkSwimlane();
 
     if (task) {
       setTitle(task.title);
@@ -113,7 +130,7 @@ export function TaskDialog({
       setAssignments([]);
       setPendingAssignments([]);
     }
-  }, [task, open]);
+  }, [task, open, swimlaneId]);
 
   const fetchAssignments = async (taskId: string) => {
     const res = await fetch(
@@ -187,6 +204,28 @@ export function TaskDialog({
     };
 
     const estimatedEffort = task.estimated_effort_pm || estimateEffort(1, taskAttributes);
+
+    // Calculate actual effort if we have dates but no stored value
+    // Show actual effort if task is in Done swimlane OR has end_date
+    let actualEffort = task.actual_effort_pm;
+    const shouldShowActualEffort = isDoneSwimlane || task.end_date;
+    
+    if (shouldShowActualEffort) {
+      if (!actualEffort) {
+        // Calculate from dates if not stored
+        const endDateValue = task.end_date || (isDoneSwimlane ? new Date().toISOString() : null);
+        const startDateValue = task.start_date || task.created_at;
+        
+        if (endDateValue && startDateValue) {
+          const startDate = new Date(startDateValue);
+          const endDate = new Date(endDateValue);
+          const diffTime = Math.abs(endDate.getTime() - startDate.getTime());
+          const diffDays = diffTime / (1000 * 60 * 60 * 24);
+          // Convert days to person-months (assuming 20 working days per month)
+          actualEffort = Math.round((diffDays / 20) * 100) / 100;
+        }
+      }
+    }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -326,6 +365,45 @@ export function TaskDialog({
                   <p className="text-xs text-slate-500 mt-1">Person Months</p>
                 </div>
               </div>
+
+              {/* Actual Effort - Show if task is in Done swimlane or has end_date */}
+              {shouldShowActualEffort && actualEffort && (
+                <div>
+                  <Label className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2 block">
+                    Actual Effort
+                  </Label>
+                  <div className="bg-white border border-slate-200 rounded-md p-3">
+                    <div className="flex items-center gap-2">
+                      <Clock className="w-4 h-4 text-green-600" />
+                      <span className="text-lg font-semibold text-slate-900">
+                        {actualEffort.toFixed(2)} PM
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between mt-1">
+                      <p className="text-xs text-slate-500">Person Months</p>
+                      {estimatedEffort > 0 && (
+                        <span
+                          className={`text-xs font-medium ${
+                            actualEffort > estimatedEffort
+                              ? "text-red-600"
+                              : actualEffort < estimatedEffort * 0.9
+                              ? "text-green-600"
+                              : "text-slate-600"
+                          }`}
+                        >
+                          {actualEffort > estimatedEffort ? "+" : ""}
+                          {((actualEffort - estimatedEffort) / estimatedEffort * 100).toFixed(0)}%
+                        </span>
+                      )}
+                    </div>
+                    {(task.start_date || task.created_at) && (task.end_date || isDoneSwimlane) && (
+                      <p className="text-xs text-slate-400 mt-1">
+                        {format(new Date(task.start_date || task.created_at!), "MMM d")} - {format(new Date(task.end_date || new Date()), "MMM d, yyyy")}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
 
               {/* Created Date */}
               {task.created_at && (

@@ -113,12 +113,20 @@ export function TaskCard({
         )}
 
         <div className="flex items-center justify-between gap-2">
-          {task.estimated_effort_pm && (
-            <Badge variant="outline" className={effortColorClass}>
-              <Zap className="size-3 mr-1" />
-              {task.estimated_effort_pm.toFixed(1)} PM
-            </Badge>
-          )}
+          <div className="flex items-center gap-2">
+            {task.estimated_effort_pm && (
+              <Badge variant="outline" className={effortColorClass}>
+                <Zap className="size-3 mr-1" />
+                {task.estimated_effort_pm.toFixed(1)} PM
+              </Badge>
+            )}
+            {isInDoneSwimlane && task.actual_effort_pm && (
+              <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                <Zap className="size-3 mr-1" />
+                {task.actual_effort_pm.toFixed(1)} PM
+              </Badge>
+            )}
+          </div>
 
           {assignments.length > 0 && (
             <div className="flex -space-x-2">

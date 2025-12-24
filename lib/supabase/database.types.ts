@@ -220,10 +220,12 @@ export type Database = {
           attr_tool: number | null;
           created_at: string | null;
           description: string | null;
+          end_date: string | null;
           estimated_effort_pm: number | null;
           id: string;
           position: number;
           project_id: string | null;
+          start_date: string | null;
           swimlane_id: string | null;
           title: string;
           updated_at: string | null;
@@ -238,10 +240,12 @@ export type Database = {
           attr_tool?: number | null;
           created_at?: string | null;
           description?: string | null;
+          end_date?: string | null;
           estimated_effort_pm?: number | null;
           id?: string;
           position?: number;
           project_id?: string | null;
+          start_date?: string | null;
           swimlane_id?: string | null;
           title: string;
           updated_at?: string | null;
@@ -256,10 +260,12 @@ export type Database = {
           attr_tool?: number | null;
           created_at?: string | null;
           description?: string | null;
+          end_date?: string | null;
           estimated_effort_pm?: number | null;
           id?: string;
           position?: number;
           project_id?: string | null;
+          start_date?: string | null;
           swimlane_id?: string | null;
           title?: string;
           updated_at?: string | null;
