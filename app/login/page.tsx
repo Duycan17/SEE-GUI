@@ -30,7 +30,7 @@ export default function LoginPage() {
     setLoading(true);
     setError(null);
 
-    const { error } = await supabase.auth.signInWithPassword({
+    const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
@@ -38,10 +38,28 @@ export default function LoginPage() {
     if (error) {
       setError(error.message);
       setLoading(false);
-    } else {
-      router.push("/");
-      router.refresh();
+      return;
     }
+
+    // Kiểm tra và tạo record trong bảng public.users nếu chưa có
+    if (data.user) {
+      const { data: existingUser } = await supabase
+        .from("users")
+        .select("id")
+        .eq("user_auth_id", data.user.id)
+        .single();
+
+      if (!existingUser) {
+        await supabase.from("users").insert({
+          email: data.user.email!,
+          user_auth_id: data.user.id,
+          is_admin: false,
+        });
+      }
+    }
+
+    router.push("/");
+    router.refresh();
   };
 
   const handleSignUp = async (e: React.FormEvent) => {
@@ -50,7 +68,7 @@ export default function LoginPage() {
     setError(null);
     setMessage(null);
 
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
     });
@@ -58,10 +76,25 @@ export default function LoginPage() {
     if (error) {
       setError(error.message);
       setLoading(false);
-    } else {
-      router.push("/");
-      router.refresh();
+      return;
     }
+
+    // Tạo record trong bảng public.users
+    if (data.user) {
+      const { error: userError } = await supabase.from("users").insert({
+        email: data.user.email!,
+        user_auth_id: data.user.id,
+        is_admin: false,
+      });
+
+      if (userError) {
+        console.error("Error creating user record:", userError);
+        // Không block flow nếu lỗi, user vẫn có thể đăng nhập
+      }
+    }
+
+    router.push("/");
+    router.refresh();
   };
 
   return (
