@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import type { Tables } from "@/lib/supabase/database.types";
 import { createClient } from "@/lib/supabase/client";
 import {
@@ -14,12 +14,14 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { TaskAssigneePicker } from "@/components/task-assignee-picker";
-import { SEEAttributeSlider } from "@/components/see-attribute-slider";
-import { estimateEffort, SEE_DESCRIPTORS, getAttributeLabel } from "@/lib/see-model";
+import { ChinaAttributeSlider } from "@/components/china-attribute-slider";
+import { estimateEffortChina, hoursToMonths, CHINA_DESCRIPTORS, getAttributeLabel, type ChinaAttributes } from "@/lib/china-model";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TaskComments } from "@/components/task-comments";
-import { Users, MessageSquare, Calendar, Clock, BarChart3, Save } from "lucide-react";
+import { ChinaAttributesGuide } from "@/components/china-attributes-guide";
+import { useChinaPrediction, type ChinaPredictionResult } from "@/hooks/use-china-prediction";
+import { Users, MessageSquare, Calendar, Clock, BarChart3, Save, HelpCircle, Calculator, TrendingUp, TrendingDown, Loader2 } from "lucide-react";
 import { format } from "date-fns";
 
 interface TaskAssignment {
@@ -49,20 +51,24 @@ export function TaskDialog({
 }: TaskDialogProps) {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [sizeKLOC, setSizeKLOC] = useState(1);
-  const [attributes, setAttributes] = useState({
-    rely: 1.0,
-    cplx: 1.0,
-    acap: 1.0,
-    pcap: 1.0,
-    tool: 1.0,
-    sced: 1.0,
+  const [attributes, setAttributes] = useState<ChinaAttributes>({
+    afp: 200,
+    input: 30,
+    output: 40,
+    enquiry: 20,
+    file: 15,
+    interface: 10,
+    resource: 5,
+    duration: 12,
   });
   const [assignments, setAssignments] = useState<TaskAssignment[]>([]);
   const [pendingAssignments, setPendingAssignments] = useState<TaskAssignment[]>([]);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isDoneSwimlane, setIsDoneSwimlane] = useState(false);
+  const [showGuide, setShowGuide] = useState(false);
+  const [apiPrediction, setApiPrediction] = useState<ChinaPredictionResult | null>(null);
+  const { predict, loading: predicting } = useChinaPrediction();
 
   useEffect(() => {
     // Fetch current user ID and check if swimlane is "Done"
@@ -107,28 +113,32 @@ export function TaskDialog({
       setTitle(task.title);
       setDescription(task.description || "");
       setAttributes({
-        rely: task.attr_rely || 1.0,
-        cplx: task.attr_cplx || 1.0,
-        acap: task.attr_acap || 1.0,
-        pcap: task.attr_pcap || 1.0,
-        tool: task.attr_tool || 1.0,
-        sced: task.attr_sced || 1.0,
+        afp: task.attr_afp || 200,
+        input: task.attr_input || 30,
+        output: task.attr_output || 40,
+        enquiry: task.attr_enquiry || 20,
+        file: task.attr_file || 15,
+        interface: task.attr_interface || 10,
+        resource: task.attr_resource || 5,
+        duration: task.attr_duration || 12,
       });
       fetchAssignments(task.id);
     } else {
       setTitle("");
       setDescription("");
-      setSizeKLOC(1);
       setAttributes({
-        rely: 1.0,
-        cplx: 1.0,
-        acap: 1.0,
-        pcap: 1.0,
-        tool: 1.0,
-        sced: 1.0,
+        afp: 200,
+        input: 30,
+        output: 40,
+        enquiry: 20,
+        file: 15,
+        interface: 10,
+        resource: 5,
+        duration: 12,
       });
       setAssignments([]);
       setPendingAssignments([]);
+      setApiPrediction(null);
     }
   }, [task, open, swimlaneId]);
 
@@ -142,6 +152,24 @@ export function TaskDialog({
     }
   };
 
+  const handleEstimate = async () => {
+    try {
+      const result = await predict({
+        AFP: attributes.afp,
+        Input: attributes.input,
+        Output: attributes.output,
+        Enquiry: attributes.enquiry,
+        File: attributes.file,
+        Interface: attributes.interface,
+        Resource: attributes.resource,
+        Duration: attributes.duration,
+      });
+      setApiPrediction(result);
+    } catch (error) {
+      console.error("Prediction error:", error);
+    }
+  };
+
   const handleCreate = async () => {
     if (!title.trim() || !onTaskCreate) return;
 
@@ -149,7 +177,9 @@ export function TaskDialog({
     const supabase = createClient();
 
     try {
-      const estimatedEffort = estimateEffort(sizeKLOC, attributes);
+      const effortHours = estimateEffortChina(attributes);
+      const estimatedEffort = hoursToMonths(effortHours);
+      
       const { data, error } = await supabase
         .from("tasks")
         .insert({
@@ -157,12 +187,14 @@ export function TaskDialog({
           swimlane_id: swimlaneId,
           title,
           description,
-          attr_rely: attributes.rely,
-          attr_cplx: attributes.cplx,
-          attr_acap: attributes.acap,
-          attr_pcap: attributes.pcap,
-          attr_tool: attributes.tool,
-          attr_sced: attributes.sced,
+          attr_afp: attributes.afp,
+          attr_input: attributes.input,
+          attr_output: attributes.output,
+          attr_enquiry: attributes.enquiry,
+          attr_file: attributes.file,
+          attr_interface: attributes.interface,
+          attr_resource: attributes.resource,
+          attr_duration: attributes.duration,
           estimated_effort_pm: estimatedEffort,
           position: 0,
         })
@@ -194,16 +226,19 @@ export function TaskDialog({
 
   // For existing tasks - read-only view
   if (task) {
-    const taskAttributes = {
-      rely: task.attr_rely || 1.0,
-      cplx: task.attr_cplx || 1.0,
-      acap: task.attr_acap || 1.0,
-      pcap: task.attr_pcap || 1.0,
-      tool: task.attr_tool || 1.0,
-      sced: task.attr_sced || 1.0,
+    const taskAttributes: ChinaAttributes = {
+      afp: task.attr_afp || 200,
+      input: task.attr_input || 30,
+      output: task.attr_output || 40,
+      enquiry: task.attr_enquiry || 20,
+      file: task.attr_file || 15,
+      interface: task.attr_interface || 10,
+      resource: task.attr_resource || 5,
+      duration: task.attr_duration || 12,
     };
 
-    const estimatedEffort = task.estimated_effort_pm || estimateEffort(1, taskAttributes);
+    const effortHours = estimateEffortChina(taskAttributes);
+    const estimatedEffort = task.estimated_effort_pm || hoursToMonths(effortHours);
 
     // Calculate actual effort if we have dates but no stored value
     // Show actual effort if task is in Done swimlane OR has end_date
@@ -228,6 +263,7 @@ export function TaskDialog({
     }
 
   return (
+    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="!max-w-[95vw] !w-[95vw] sm:!max-w-[95vw] md:!max-w-[95vw] lg:!max-w-[95vw] xl:!max-w-[95vw] max-h-[95vh] flex flex-col p-0 gap-0">
         {/* Jira-style Header */}
@@ -272,19 +308,36 @@ export function TaskDialog({
                   </div>
                 </div>
 
-                {/* SEE Attributes */}
+                {/* China Dataset Attributes */}
                 <div>
-                  <h3 className="text-sm font-semibold text-slate-700 mb-4 flex items-center gap-2">
-                    <BarChart3 className="w-4 h-4" />
-                    SEE Attributes
-                  </h3>
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+                      <BarChart3 className="w-4 h-4" />
+                      China Dataset Attributes
+                    </h3>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setShowGuide(true)}
+                      className="h-7 px-2 text-xs text-slate-600 hover:text-indigo-600 hover:bg-indigo-50"
+                    >
+                      <HelpCircle className="w-3.5 h-3.5 mr-1.5" />
+                      How to estimate
+                    </Button>
+                  </div>
                   <div className="bg-white border border-slate-200 rounded-md p-4 space-y-4">
-                    {Object.entries(SEE_DESCRIPTORS).map(([key, descriptor]) => {
-                      const value = attributes[key as keyof typeof attributes];
+                    {Object.entries(CHINA_DESCRIPTORS).map(([key, descriptor]) => {
+                      const value = taskAttributes[key as keyof ChinaAttributes];
+                      const attributeCode = key.toUpperCase();
                       return (
                         <div key={key} className="flex items-center justify-between py-2 border-b border-slate-100 last:border-0">
                           <div className="flex-1">
-                            <div className="font-medium text-sm text-slate-900">{descriptor.label}</div>
+                            <div className="font-medium text-sm text-slate-900 flex items-center gap-2">
+                              {descriptor.label}
+                              <span className="text-xs font-mono text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded">
+                                {attributeCode}
+                              </span>
+                            </div>
                             <div className="text-xs text-slate-500 mt-0.5">{descriptor.description}</div>
                           </div>
                           <div className="flex items-center gap-3">
@@ -296,10 +349,10 @@ export function TaskDialog({
                                 }}
                               />
                             </div>
-                            <div className="w-20 text-right">
-                              <span className="font-medium text-sm text-slate-900">{value.toFixed(2)}</span>
+                            <div className="w-24 text-right">
+                              <span className="font-medium text-sm text-slate-900">{value}</span>
                               <span className="text-xs text-slate-500 ml-1">
-                                ({getAttributeLabel(value)})
+                                ({getAttributeLabel(value, key as keyof ChinaAttributes)})
                               </span>
                             </div>
                           </div>
@@ -443,13 +496,18 @@ export function TaskDialog({
         </div>
       </DialogContent>
     </Dialog>
+
+    <ChinaAttributesGuide open={showGuide} onOpenChange={setShowGuide} />
+  </>
   );
   }
 
   // For new tasks - create form
-  const estimatedEffort = estimateEffort(sizeKLOC, attributes);
+  const effortHours = estimateEffortChina(attributes);
+  const estimatedEffort = hoursToMonths(effortHours);
 
   return (
+    <React.Fragment>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="!max-w-[95vw] !w-[95vw] sm:!max-w-[95vw] md:!max-w-[95vw] lg:!max-w-[95vw] xl:!max-w-[95vw] max-h-[95vh] flex flex-col p-0 gap-0">
         <DialogHeader className="px-6 py-4 border-b bg-slate-50 shrink-0">
@@ -494,36 +552,118 @@ export function TaskDialog({
               />
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="size">Size Estimate (KLOC)</Label>
-              <Input
-                id="size"
-                type="number"
-                min="0.1"
-                step="0.1"
-                value={sizeKLOC}
-                onChange={(e) =>
-                  setSizeKLOC(Number.parseFloat(e.target.value) || 1)
-                }
-              />
-              <p className="text-xs text-muted-foreground">
-                Estimated size in thousands of lines of code
-              </p>
-            </div>
-
             <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <h4 className="font-semibold text-sm">SEE Attributes</h4>
-                <Badge variant="secondary">
-                  Estimated: {estimatedEffort.toFixed(2)} PM
-                </Badge>
+                <div className="flex items-center gap-2">
+                  <h4 className="font-semibold text-sm">China Dataset Attributes</h4>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setShowGuide(true)}
+                    className="h-6 px-2 text-xs text-slate-600 hover:text-indigo-600 hover:bg-indigo-50"
+                  >
+                    <HelpCircle className="w-3.5 h-3.5 mr-1.5" />
+                    How to estimate
+                  </Button>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleEstimate}
+                  disabled={predicting}
+                  className="h-8"
+                >
+                  {predicting ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
+                      Estimating...
+                    </>
+                  ) : (
+                    <>
+                      <Calculator className="w-3.5 h-3.5 mr-1.5" />
+                      Estimate
+                    </>
+                  )}
+                </Button>
               </div>
 
-              {Object.entries(SEE_DESCRIPTORS).map(([key, descriptor]) => (
-                <SEEAttributeSlider
+              {/* API Prediction Results */}
+              {apiPrediction && (
+                <div className="border-2 border-indigo-200 rounded-lg p-4 bg-indigo-50 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h5 className="font-semibold text-sm text-indigo-900">API Prediction Results</h5>
+                    <Badge variant="outline" className="bg-indigo-100 text-indigo-700 border-indigo-300">
+                      {apiPrediction.model_version}
+                    </Badge>
+                  </div>
+
+                  {/* Effort Display */}
+                  <div className="bg-white rounded-lg p-4 border border-indigo-200">
+                    <div className="text-center">
+                      <p className="text-xs text-slate-600 mb-1">Predicted Effort</p>
+                      <div className="text-3xl font-bold text-indigo-600">
+                        {apiPrediction.prediction.toLocaleString()}
+                      </div>
+                      <p className="text-sm text-slate-700 mt-1">person-hours</p>
+                      <Badge variant="secondary" className="mt-2">
+                        {apiPrediction.prediction_pm.toFixed(2)} person-months
+                      </Badge>
+                    </div>
+                  </div>
+
+                  {/* Feature Importance */}
+                  <div className="space-y-2">
+                    <h6 className="text-xs font-semibold text-indigo-900">Feature Importance</h6>
+                    <div className="space-y-1.5">
+                      {apiPrediction.feature_importance
+                        .sort((a, b) => Math.abs(b.importance) - Math.abs(a.importance))
+                        .slice(0, 5)
+                        .map((item) => {
+                          const isPositive = item.importance > 0;
+                          const absValue = Math.abs(item.importance);
+                          const maxAbs = Math.max(
+                            ...apiPrediction.feature_importance.map((f) => Math.abs(f.importance))
+                          );
+                          const widthPercent = (absValue / maxAbs) * 100;
+
+                          return (
+                            <div key={item.feature} className="bg-white rounded p-2 border border-indigo-100">
+                              <div className="flex items-center justify-between text-xs mb-1">
+                                <span className="font-medium text-slate-700">{item.feature}</span>
+                                <div className="flex items-center gap-1">
+                                  {isPositive ? (
+                                    <TrendingUp className="w-3 h-3 text-red-500" />
+                                  ) : (
+                                    <TrendingDown className="w-3 h-3 text-green-500" />
+                                  )}
+                                  <span className={isPositive ? "text-red-600" : "text-green-600"}>
+                                    {isPositive ? "+" : ""}
+                                    {item.importance.toFixed(2)}
+                                  </span>
+                                </div>
+                              </div>
+                              <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                                <div
+                                  className={`h-full ${isPositive ? "bg-red-500" : "bg-green-500"}`}
+                                  style={{ width: `${widthPercent}%` }}
+                                />
+                              </div>
+                            </div>
+                          );
+                        })}
+                    </div>
+                    <p className="text-[10px] text-slate-600 mt-2">
+                      Top 5 factors by impact. Red increases effort, green decreases effort.
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {Object.entries(CHINA_DESCRIPTORS).map(([key, descriptor]) => (
+                <ChinaAttributeSlider
                   key={key}
-                  attribute={key as keyof typeof attributes}
-                  value={attributes[key as keyof typeof attributes]}
+                  attribute={key as keyof ChinaAttributes}
+                  value={attributes[key as keyof ChinaAttributes]}
                   onChange={(value) =>
                     setAttributes((prev) => ({ ...prev, [key]: value }))
                   }
@@ -545,5 +685,8 @@ export function TaskDialog({
         </div>
       </DialogContent>
     </Dialog>
+
+    <ChinaAttributesGuide open={showGuide} onOpenChange={setShowGuide} />
+    </React.Fragment>
   );
 }
